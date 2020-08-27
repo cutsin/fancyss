@@ -59,7 +59,7 @@ do_build() {
 	"home_url":"$HOME_URL",
 	"md5":"$md5value",
 	"name":"$MODULE",
-	"tar_url": "https://raw.githubusercontent.com/idealism-xxm/fancyss/master/fancyss_arm/shadowsocks.tar.gz",
+	"tar_url": "https://raw.githubusercontent.com/cutsin/fancyss/master/fancyss_arm/shadowsocks.tar.gz",
 	"title":"$TITLE",
 	"version":"$VERSION"
 	}
@@ -75,7 +75,8 @@ do_backup(){
 	echo backup VERSION $backup_version
 	cp ${MODULE}.tar.gz $HISTORY_DIR/${MODULE}_$backup_version.tar.gz
 	# 多添加一个 "" 是为了在 MacOS 下运行
-	sed -i "" "/$backup_version/d" "$HISTORY_DIR"/md5sum.txt
+	#sed -i "" "/$backup_version/d" "$HISTORY_DIR"/md5sum.txt
+	sed -i "/$backup_version/d" "$HISTORY_DIR"/md5sum.txt
 	echo $backup_tar_md5 ${MODULE}_$backup_version.tar.gz >> "$HISTORY_DIR"/md5sum.txt
 }
 

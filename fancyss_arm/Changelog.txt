@@ -1,5 +1,8 @@
 fancyss_arm Changelog
 ===========================================
+4.3.7-trojan.ssl
+   - Enforce SSL Verify
+
 4.3.7
    - fix	修复 4.3.6 新引入的问题，会导致端口识别错误
 
