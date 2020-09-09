@@ -1,6 +1,8 @@
 #!/bin/sh
 
 # shadowsocks script for HND/AXHND router with kernel 4.1.27/4.1.51 merlin firmware
+# suport trojan by idealism-xxm (https://github.com/idealism-xxm)
+# rebuild trojan with ssl verify by cutsin (https://github.com/cutsin)
 
 source /koolshare/scripts/ss_base.sh
 #-----------------------------------------------
@@ -11,6 +13,9 @@ LOG_FILE=/tmp/upload/ss_log.txt
 CONFIG_FILE=/koolshare/ss/ss.json
 V2RAY_CONFIG_FILE_TMP="/tmp/v2ray_tmp.json"
 V2RAY_CONFIG_FILE="/koolshare/ss/v2ray.json"
+TROJAN_CONFIG_FILE="/koolshare/ss/trojan.json"
+TROJAN_V2RAY_CONFIG_FILE_TMP="/tmp/trojan-v2ray-tmp.json"
+TROJAN_V2RAY_CONFIG_FILE="/koolshare/ss/trojan-v2ray.json"
 LOCK_FILE=/var/lock/koolss.lock
 DNSF_PORT=7913
 DNSC_PORT=53
@@ -224,6 +229,11 @@ restore_conf() {
 }
 
 kill_process() {
+	trojan_process=`pidof trojan`
+	if [ -n "$trojan_process" ];then
+		echo_date 关闭 Trojan 进程...
+		killall trojan >/dev/null 2>&1
+	fi
 	v2ray_process=$(pidof v2ray)
 	if [ -n "$v2ray_process" ]; then
 		echo_date 关闭V2Ray进程...
@@ -1686,6 +1696,124 @@ start_v2ray() {
 	echo_date v2ray启动成功，pid：$V2PID
 }
 
+# create trojan config file...
+create_trojan_json(){
+	echo_date 创建 Trojan 配置文件到 $TROJAN_CONFIG_FILE
+	cat > $TROJAN_CONFIG_FILE <<-EOF
+		{
+		  "run_type": "client",
+		  "local_addr": "0.0.0.0",
+		  "local_port": 23456,
+		  "remote_addr": "$(dbus get ssconf_basic_server_$(dbus get ssconf_basic_node))",
+		  "remote_port": $ss_basic_port,
+		  "password": [
+		    "$ss_basic_password"
+		  ],
+		  "log_level": 2,
+		  "ssl": {
+		    "verify": true,
+		    "verify_hostname": true,
+		    "cert": "/etc/ssl/certs/ca-certificates.crt",
+		    "cipher": "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-AES256-SHA:ECDHE-ECDSA-AES128-SHA:ECDHE-RSA-AES128-SHA:ECDHE-RSA-AES256-SHA:DHE-RSA-AES128-SHA:DHE-RSA-AES256-SHA:AES128-SHA:AES256-SHA:DES-CBC3-SHA",
+		    "cipher_tls13": "TLS_AES_128_GCM_SHA256:TLS_CHACHA20_POLY1305_SHA256:TLS_AES_256_GCM_SHA384",
+		    "sni": "",
+		    "alpn": [
+		      "h2",
+		      "http/1.1"
+		    ],
+		    "reuse_session": true,
+		    "session_ticket": false,
+		    "curves": ""
+	    	  },
+		  "tcp": {
+		    "no_delay": true,
+		    "keep_alive": true,
+		    "reuse_port": false,
+		    "fast_open": false,
+		    "fast_open_qlen": 20
+	  	  }
+		}
+	EOF
+
+	# v2ray 程序读取 json 配置文件必须要 tab 缩进，所以要转换一下
+	echo_date 创建 Trojan-V2Ray 配置文件到 $TROJAN_V2RAY_CONFIG_FILE
+
+	cat > $TROJAN_V2RAY_CONFIG_FILE_TMP <<-EOF
+		{
+		  "log": {
+		    "access": "/dev/null",
+		    "error": "/tmp/trojan_v2ray_log.log",
+		    "loglevel": "error"
+	    	},
+		  "inbounds": [
+		    {
+		      "listen": "0.0.0.0",
+		      "port": 3333,
+		      "protocol": "dokodemo-door",
+		      "settings": {
+		        "network": "tcp,udp",
+		        "followRedirect": true
+	      	      }
+		    }
+		  ],
+		  "outbounds": [
+		    {
+		      "tag": "proxy",
+		      "protocol": "socks",
+		      "settings": {
+		        "servers": [{
+			  "address": "127.0.0.1",
+			  "port": 23456
+		        }]
+		      },
+		    "streamSettings": {
+		      "sockopt": {
+		        "mark": 255
+		      }
+      		    }
+    		  }
+		]
+	      }
+	EOF
+
+	cat "$TROJAN_V2RAY_CONFIG_FILE_TMP" | jq --tab . >"$TROJAN_V2RAY_CONFIG_FILE"
+}
+
+start_trojan() {
+	# trojan start
+	cd /koolshare/bin
+	trojan --config=$TROJAN_CONFIG_FILE >/dev/null 2>&1 &
+	local TROJAN_PID
+	local i=10
+	until [ -n "$TROJAN_PID" ]; do
+		i=$(($i - 1))
+		TROJAN_PID=$(pidof trojan)
+		if [ "$i" -lt 1 ]; then
+			echo_date "trojan 进程启动失败！"
+			close_in_five
+		fi
+		sleep 1
+	done
+	echo_date "trojan 启动成功，pid：$TROJAN_PID"
+
+
+	# v2ray start
+	v2ray -config=$TROJAN_V2RAY_CONFIG_FILE >/dev/null 2>&1 &
+	local V2RAY_PID
+	local i=10
+	until [ -n "$V2RAY_PID" ]; do
+		i=$(($i - 1))
+		V2RAY_PID=$(pidof v2ray)
+		if [ "$i" -lt 1 ]; then
+			echo_date "v2ray 进程启动失败！"
+			close_in_five
+		fi
+		sleep 1
+	done
+	echo_date "v2ray 启动成功，pid：$V2RAY_PID"
+	echo_date "Trojan 和 V2Ray 启动成功， socks 走 trojan ，http 走 v2ray"
+}
+
 write_cron_job() {
 	sed -i '/ssupdate/d' /var/spool/cron/crontabs/* >/dev/null 2>&1
 	if [ "1" == "$ss_basic_rule_update" ]; then
@@ -2409,11 +2537,13 @@ apply_ss() {
 	creat_ipset
 	create_dnsmasq_conf
 	# do not re generate json on router start, use old one
-	[ "$ss_basic_type" != "3" ] && creat_ss_json
+	[ "$ss_basic_type" != "3" ] && [ "$ss_basic_type" != "4" ] && creat_ss_json
 	[ "$ss_basic_type" = "3" ] && creat_v2ray_json
+	[ "$ss_basic_type" = "4" ] && create_trojan_json
 	[ "$ss_basic_type" == "0" ] || [ "$ss_basic_type" == "1" ] && start_ss_redir
 	[ "$ss_basic_type" == "2" ] && start_koolgame
 	[ "$ss_basic_type" == "3" ] && start_v2ray
+	[ "$ss_basic_type" == "4" ] && start_trojan
 	[ "$ss_basic_type" != "2" ] && start_kcp
 	[ "$ss_basic_type" != "2" ] && start_dns
 	#===load nat start===

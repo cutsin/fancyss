@@ -109,6 +109,7 @@ check_status() {
 	KCPTUN=$(pidof client_linux_arm7)
 	HAPROXY=$(pidof haproxy)
 	V2RAY=$(pidof v2ray)
+	TROJAN=$(pidof trojan)
 	HDP=$(pidof https_dns_proxy)
 	DMQ=$(pidof dnsmasq)
 	SMD=$(pidof smartdns)
@@ -144,6 +145,14 @@ check_status() {
 		echo ② 检测当前相关进程工作状态：（你正在使用V2Ray,选择的模式是$(get_mode_name $ss_basic_mode),国外DNS解析方案是：$(get_dns_name $ss_foreign_dns)）
 		echo -----------------------------------------------------------
 		echo "程序		状态	PID"
+		[ -n "$V2RAY" ] && echo "v2ray		工作中	pid：$V2RAY" || echo "v2ray	未运行"
+	elif [ "$ss_basic_type" == "4" ]; then
+		echo_version
+		echo
+		echo ② 检测当前相关进程工作状态：（你正在使用 Trojan, 选择的模式是$(get_mode_name $ss_basic_mode),国外DNS解析方案是：$(get_dns_name $ss_foreign_dns)）
+		echo -----------------------------------------------------------
+		echo "程序		状态	PID"
+		[ -n "$TROJAN" ] && echo "trojan		工作中	pid：$TROJAN" || echo "trojan	未运行"
 		[ -n "$V2RAY" ] && echo "v2ray		工作中	pid：$V2RAY" || echo "v2ray	未运行"
 	fi
 

@@ -24,6 +24,16 @@ sync_v2ray_binary(){
 	fi
 }
 
+sync_trojan_binary(){
+	trojan_version=`cat ../trojan_binary/latest.txt`
+	md5_latest=`md5sum ../trojan_binary/$trojan_version/trojan | sed 's/ /\n/g'| sed -n 1p`
+	md5_old=`md5sum shadowsocks/bin/trojan | sed 's/ /\n/g'| sed -n 1p`
+	if [ "$md5_latest"x != "$md5_old"x ]; then
+		echo update trojan binary！
+		cp -rf ../trojan_binary/$trojan_version/trojan shadowsocks/bin/
+	fi
+}
+
 do_build() {
 	if [ "$VERSION" = "" ]; then
 		echo "version not found"
@@ -49,7 +59,7 @@ do_build() {
 	"home_url":"$HOME_URL",
 	"md5":"$md5value",
 	"name":"$MODULE",
-	"tar_url": "https://raw.githubusercontent.com/hq450/fancyss/master/fancyss_hnd/shadowsocks.tar.gz", 
+	"tar_url": "https://raw.githubusercontent.com/cutsin/fancyss/master/fancyss_hnd/shadowsocks.tar.gz", 
 	"title":"$TITLE",
 	"version":"$VERSION"
 	}
@@ -57,7 +67,9 @@ do_build() {
 }
 
 do_backup(){
-	HISTORY_DIR="../../fancyss_history_package/fancyss_hnd"
+	# Only store folk pkgs in current path (^1.8.1-trojan.ssl)
+	HISTORY_DIR="history_package"
+	# HISTORY_DIR="../../fancyss_history_package/fancyss_hnd"
 	# backup latested package after pack
 	backup_version=`cat version | sed -n 1p`
 	backup_tar_md5=`cat version | sed -n 2p`
@@ -70,5 +82,6 @@ do_backup(){
 
 cp_rules
 sync_v2ray_binary
+sync_trojan_binary
 do_build
 do_backup

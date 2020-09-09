@@ -42,8 +42,10 @@ ss_basic_server_orig=$ss_basic_server
 		else
 			if [ -n "$ss_basic_v2ray_use_json" ];then
 				ss_basic_type="3"
-			else
+			elif [ -n "$ss_basic_ss_v2ray_plugin" ]; then
 				ss_basic_type="0"
+			else
+				ss_basic_type="4"
 			fi
 		fi
 	fi
