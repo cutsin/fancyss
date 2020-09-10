@@ -878,7 +878,7 @@ function tabclickhandler(_type) {
 	} else if (_type == 4) {
 		// 添加 Trojan 节点的界面
 		save_flag = "trojan";
-		E("vpnc_type").value = "trojan";
+		// E("vpnc_type").value = "trojan";
 		E('trojanTitle').className = "vpnClientTitle_td_click";
 		// 显示别名、地址、端口和密码（公用 ss 的）
 		E('ss_name_support_tr').style.display = "";
